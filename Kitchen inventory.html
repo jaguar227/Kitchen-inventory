@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>廚房物品目錄管理系統</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #e67e22;
+            --bg-color: #f4f6f8;
+            --card-bg: #ffffff;
+            --text-color: #2d3748;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-color); display: flex; flex-direction: column; min-height: 100vh; }
+
+        /* Header & Mobile Nav */
+        header { background-color: var(--primary-color); color: white; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+        header h1 { font-size: 1.1rem; font-weight: 600; }
+        .toggle-btn { background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; padding: 4px; }
+
+        /* Layout */
+        .container { display: flex; flex: 1; position: relative; overflow: hidden; }
+        
+        /* Sidebar */
+        aside {
+            width: 280px; background-color: #ffffff; border-right: 1px solid #e2e8f0; padding: 16px;
+            position: absolute; top: 0; bottom: 0; left: -280px; transition: left 0.3s ease; z-index: 90; height: 100%; overflow-y: auto;
+        }
+        aside.open { left: 0; box-shadow: 4px 0 15px rgba(0,0,0,0.1); }
+        .sidebar-group { margin-bottom: 24px; }
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 2px solid #edf2f7; padding-bottom: 6px; }
+        .sidebar-header h3 { font-size: 0.85rem; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
+        .add-cat-btn { background: #edf2f7; border: none; border-radius: 4px; padding: 2px 8px; font-size: 0.8rem; cursor: pointer; color: #4a5568; font-weight: bold; }
+        .add-cat-btn:hover { background: #e2e8f0; }
+
+        .filter-item-wrapper { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; border-radius: 6px; border: 1px solid transparent; transition: all 0.2s; }
+        .filter-item { flex: 1; padding: 8px 10px; color: var(--text-color); text-decoration: none; font-size: 0.9rem; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+        .filter-item-wrapper.active { font-weight: bold; border-color: #2b6cb0 !important; box-shadow: 0 0 0 1px #2b6cb0; }
+        .cat-actions { display: flex; gap: 4px; padding-right: 6px; opacity: 0.8; }
+        .cat-actions button { background: rgba(255,255,255,0.6); border: none; font-size: 0.8rem; cursor: pointer; padding: 2px 4px; border-radius: 3px; }
+        .cat-actions button:hover { background: #ffffff; }
+
+        /* Main Content */
+        main { flex: 1; padding: 16px; width: 100%; overflow-y: auto; }
+
+        /* Control Panel */
+        .controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+        .search-bar, .sort-select { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 0.95rem; background: white; }
+        .action-btns { display: flex; gap: 10px; }
+        .btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-align: center; font-size: 0.95rem; }
+        .btn-primary { background-color: var(--accent-color); color: white; }
+        .btn-secondary { background-color: #e2e8f0; color: #4a5568; }
+
+        /* Grid Display */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+        .card { background: var(--card-bg); border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display: flex; flex-direction: column; }
+        .card img { width: 100%; height: 130px; object-fit: cover; background-color: #edf2f7; }
+        .card-body { padding: 10px; display: flex; flex-direction: column; gap: 4px; flex: 1; font-size: 0.85rem; }
+        .card-title { font-weight: 700; font-size: 0.95rem; color: #1a202c; word-break: break-word; margin-bottom: 2px; }
+        .info-row { display: flex; align-items: center; gap: 4px; color: #4a5568; font-size: 0.8rem; }
+        .card-tag { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; display: inline-block; width: fit-content; margin-top: 4px; font-weight: 500; background-color: #edf2f7; color: #4a5568; }
+        .card-actions { margin-top: auto; padding-top: 8px; display: flex; justify-content: space-between; border-top: 1px solid #f0f0f0; }
+        .card-actions button { border: none; background: none; color: #3182ce; font-size: 0.8rem; cursor: pointer; font-weight: 600; padding: 4px; }
+
+        /* Color Picker Palette */
+        .color-palette { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 8px; }
+        .color-option { height: 28px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: transform 0.1s; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #555; }
+        .color-option.selected { border-color: #2b6cb0; transform: scale(1.1); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+        /* Pagination */
+        .pagination { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 24px; padding-bottom: 20px; }
+        .pagination button { padding: 8px 16px; border: 1px solid #cbd5e0; background: white; border-radius: 8px; font-weight: 600; }
+
+        /* Modal Overlay */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center; padding: 16px; }
+        .modal.open { display: flex; }
+        .modal-content { background: white; padding: 20px; border-radius: 14px; width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 0.85rem; margin-bottom: 4px; font-weight: 600; color: #4a5568; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 0.95rem; background: #fff; }
+
+        @media (min-width: 768px) {
+            aside { position: relative; left: 0; }
+            .toggle-btn { display: none; }
+            .controls { flex-direction: row; }
+            .grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+            .card img { height: 150px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
+        <h1>廚房物品目錄管理</h1>
+        <div style="width: 24px;"></div>
+    </header>
+
+    <div class="container">
+        <!-- 左側動態目錄欄 -->
+        <aside id="sidebar">
+            <div class="sidebar-group">
+                <div class="sidebar-header">
+                    <h3>擺放位置</h3>
+                    <button class="add-cat-btn" onclick="openCatModal('location')">+ 新增</button>
+                </div>
+                <div id="location-filters"></div>
+            </div>
+            <div class="sidebar-group">
+                <div class="sidebar-header">
+                    <h3>物品種類</h3>
+                    <button class="add-cat-btn" onclick="openCatModal('category')">+ 新增</button>
+                </div>
+                <div id="category-filters"></div>
+            </div>
+        </aside>
+
+        <!-- 主內容顯示區 -->
+        <main>
+            <div class="controls">
+                <input type="text" id="search-input" class="search-bar" placeholder="🔍 文字搜尋名稱或說明..." oninput="handleSearch()">
+                <select id="sort-select" class="sort-select" onchange="handleSort()">
+                    <option value="expiry-asc">按到期日 (最近到期)</option>
+                    <option value="expiry-desc">按到期日 (最遠到期)</option>
+                    <option value="name-asc">按名稱 (A-Z)</option>
+                    <option value="location-asc">按擺放位置</option>
+                </select>
+                <div class="action-btns">
+                    <button class="btn btn-primary" onclick="openModal()">+ 新增物品</button>
+                </div>
+            </div>
+
+            <div class="grid" id="items-grid"></div>
+
+            <div class="pagination">
+                <button onclick="changePage(-1)" id="btn-prev">上一頁</button>
+                <span id="page-info">1 / 1</span>
+                <button onclick="changePage(1)" id="btn-next">下一頁</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- 新增 / 修改 分類欄位彈窗 -->
+    <div class="modal" id="cat-modal">
+        <div class="modal-content">
+            <h2 id="cat-modal-title" style="margin-bottom: 15px; font-size: 1.1rem;">編輯目錄欄位</h2>
+            <form onsubmit="saveCategory(event)">
+                <input type="hidden" id="cat-type">
+                <input type="hidden" id="cat-old-name">
+                <div class="form-group">
+                    <label>欄位名稱 *</label>
+                    <input type="text" id="cat-name" required placeholder="請輸入分類名稱">
+                </div>
+                <div class="form-group">
+                    <label>選擇欄位底色 (20款全色系分配，含無底色)</label>
+                    <div class="color-palette" id="cat-color-palette"></div>
+                    <input type="hidden" id="cat-color" value="transparent">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 18px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeCatModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 新增 / 修改 物品視窗 -->
+    <div class="modal" id="item-modal">
+        <div class="modal-content">
+            <h2 id="modal-title" style="margin-bottom: 15px; font-size: 1.2rem; color: #2d3748;">新增物品</h2>
+            <form id="item-form" onsubmit="saveItem(event)">
+                <input type="hidden" id="item-id">
+                <div class="form-group">
+                    <label>物品圖片 (上傳後將自動強化對比度與清晰度)</label>
+                    <input type="file" id="item-image" accept="image/*" onchange="processAndPreviewImage(this)">
+                    <img id="image-preview" src="" style="width: 100%; height: 110px; object-fit: cover; display: none; margin-top: 8px; border-radius: 8px;">
+                </div>
+                <!-- 僅物品名稱為必填 -->
+                <div class="form-group">
+                    <label>物品名稱 *</label>
+                    <input type="text" id="item-name" required placeholder="例如：醬油">
+                </div>
+                <div class="form-group">
+                    <label>擺放位置</label>
+                    <select id="item-location"></select>
+                </div>
+                <div class="form-group">
+                    <label>物品種類</label>
+                    <select id="item-category"></select>
+                </div>
+                <div class="form-group">
+                    <label>容量 / 數量</label>
+                    <input type="text" id="item-capacity" placeholder="例如：500ml / 2包">
+                </div>
+                <div class="form-group">
+                    <label>到期日</label>
+                    <input type="date" id="item-expiry">
+                </div>
+                <div class="form-group">
+                    <label>說明文字</label>
+                    <textarea id="item-desc" rows="2" placeholder="備註說明..."></textarea>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 18px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">儲存變更</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 20 款全色系平均分配的調色盤 (透明度 75% >= 60%) + 無底色選項
+        const PALETTE_COLORS = [
+            'transparent',                // 無底色
+            'rgba(254, 202, 202, 0.75)', // 紅色系
+            'rgba(252, 165, 165, 0.75)', // 深紅系
+            'rgba(253, 186, 116, 0.75)', // 橙色系
+            'rgba(254, 215, 170, 0.75)', // 珊瑚橙
+            'rgba(253, 224, 71, 0.75)',  // 黃色系
+            'rgba(254, 240, 138, 0.75)', // 明黃系
+            'rgba(190, 242, 100, 0.75)', // 萊姆綠
+            'rgba(134, 239, 172, 0.75)', // 綠色系
+            'rgba(167, 243, 208, 0.75)', // 薄荷綠
+            'rgba(153, 246, 228, 0.75)', // 青色系
+            'rgba(165, 243, 252, 0.75)', // 淺藍系
+            'rgba(147, 197, 253, 0.75)', // 藍色系
+            'rgba(191, 219, 254, 0.75)', // 天藍系
+            'rgba(165, 180, 252, 0.75)', // 靛藍系
+            'rgba(196, 181, 253, 0.75)', // 紫色系
+            'rgba(221, 214, 254, 0.75)', // 薰衣草
+            'rgba(240, 171, 252, 0.75)', // 粉紫系
+            'rgba(249, 168, 212, 0.75)', // 粉紅系
+            'rgba(203, 213, 225, 0.75)', // 灰色系
+            'rgba(226, 232, 240, 0.75)'  // 淺灰系
+        ];
+
+        // 預設分類結構物件 { name: string, color: string }
+        const DEFAULT_LOCATIONS = [
+            { name: '灶台下櫃', color: 'rgba(254, 215, 170, 0.75)' },
+            { name: '高身糧倉櫃', color: 'rgba(191, 219, 254, 0.75)' },
+            { name: '冰箱上層', color: 'rgba(167, 243, 208, 0.75)' }
+        ];
+
+        const DEFAULT_CATEGORIES = [
+            { name: '調味品', color: 'rgba(253, 224, 71, 0.75)' },
+            { name: '烘焙乾貨', color: 'rgba(221, 214, 254, 0.75)' },
+            { name: '生鮮冷凍', color: 'rgba(165, 243, 252, 0.75)' }
+        ];
+
+        const DEFAULT_ITEMS = [
+            { id: '1', name: '特級初榨橄欖油', location: '灶台下櫃', category: '調味品', capacity: '1L', expiry: '2027-05-10', desc: '涼拌或中溫煎炒', image: '' },
+            { id: '2', name: '低筋麵粉', location: '高身糧倉櫃', category: '烘焙乾貨', capacity: '1kg', expiry: '2026-11-20', desc: '做蛋糕餅乾用', image: '' }
+        ];
+
+        let locations = JSON.parse(localStorage.getItem('kitchen_locations_v2')) || DEFAULT_LOCATIONS;
+        let categories = JSON.parse(localStorage.getItem('kitchen_categories_v2')) || DEFAULT_CATEGORIES;
+        let items = JSON.parse(localStorage.getItem('kitchen_items_v2')) || DEFAULT_ITEMS;
+
+        let currentPage = 1;
+        const pageSize = 30;
+        let activeLocationFilter = 'ALL';
+        let activeCategoryFilter = 'ALL';
+        let currentImageBase64 = '';
+        let selectedCatColor = 'transparent';
+
+        function saveData() {
+            localStorage.setItem('kitchen_locations_v2', JSON.stringify(locations));
+            localStorage.setItem('kitchen_categories_v2', JSON.stringify(categories));
+            localStorage.setItem('kitchen_items_v2', JSON.stringify(items));
+            renderSidebar();
+            renderGrid();
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        /* ----- 左側目錄欄渲染 (無標籤、套用選定底色) ----- */
+        function renderSidebar() {
+            const locContainer = document.getElementById('location-filters');
+            locContainer.innerHTML = `
+                <div class="filter-item-wrapper ${activeLocationFilter === 'ALL' ? 'active' : ''}" style="background-color: transparent;">
+                    <div class="filter-item" onclick="setFilter('loc', 'ALL')">全部位置</div>
+                </div>
+            ` + locations.map(loc => `
+                <div class="filter-item-wrapper ${activeLocationFilter === loc.name ? 'active' : ''}" style="background-color: ${loc.color || 'transparent'};">
+                    <div class="filter-item" onclick="setFilter('loc', '${loc.name}')">${loc.name}</div>
+                    <div class="cat-actions">
+                        <button onclick="openCatModal('location', '${loc.name}')" title="修改欄位">✏️</button>
+                        <button onclick="deleteCategory('location', '${loc.name}')" title="刪除">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+
+            const catContainer = document.getElementById('category-filters');
+            catContainer.innerHTML = `
+                <div class="filter-item-wrapper ${activeCategoryFilter === 'ALL' ? 'active' : ''}" style="background-color: transparent;">
+                    <div class="filter-item" onclick="setFilter('cat', 'ALL')">全部種類</div>
+                </div>
+            ` + categories.map(cat => `
+                <div class="filter-item-wrapper ${activeCategoryFilter === cat.name ? 'active' : ''}" style="background-color: ${cat.color || 'transparent'};">
+                    <div class="filter-item" onclick="setFilter('cat', '${cat.name}')">${cat.name}</div>
+                    <div class="cat-actions">
+                        <button onclick="openCatModal('category', '${cat.name}')" title="修改欄位">✏️</button>
+                        <button onclick="deleteCategory('category', '${cat.name}')" title="刪除">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        /* ----- 分類欄位 顏色與名稱編輯彈窗 ----- */
+        function openCatModal(type, oldName = '') {
+            document.getElementById('cat-modal').classList.add('open');
+            document.getElementById('cat-type').value = type;
+            document.getElementById('cat-old-name').value = oldName;
+
+            const list = type === 'location' ? locations : categories;
+            const existing = list.find(item => item.name === oldName);
+
+            if (existing) {
+                document.getElementById('cat-modal-title').innerText = '修改目錄欄位';
+                document.getElementById('cat-name').value = existing.name;
+                selectedCatColor = existing.color || 'transparent';
+            } else {
+                document.getElementById('cat-modal-title').innerText = '新增目錄欄位';
+                document.getElementById('cat-name').value = '';
+                selectedCatColor = 'transparent';
+            }
+
+            renderCatColorPalette();
+        }
+
+        function closeCatModal() {
+            document.getElementById('cat-modal').classList.remove('open');
+        }
+
+        function renderCatColorPalette() {
+            const palette = document.getElementById('cat-color-palette');
+            palette.innerHTML = PALETTE_COLORS.map(color => `
+                <div class="color-option ${selectedCatColor === color ? 'selected' : ''}" 
+                     style="background-color: ${color === 'transparent' ? '#fff' : color}; border: ${color === 'transparent' ? '1px dashed #ccc' : 'none'};" 
+                     onclick="selectCatColor('${color}')">
+                     ${color === 'transparent' ? '無' : ''}
+                </div>
+            `).join('');
+            document.getElementById('cat-color').value = selectedCatColor;
+        }
+
+        function selectCatColor(color) {
+            selectedCatColor = color;
+            renderCatColorPalette();
+        }
+
+        function saveCategory(e) {
+            e.preventDefault();
+            const type = document.getElementById('cat-type').value;
+            const oldName = document.getElementById('cat-old-name').value;
+            const newName = document.getElementById('cat-name').value.trim();
+            const color = document.getElementById('cat-color').value;
+
+            let list = type === 'location' ? locations : categories;
+
+            if (oldName) {
+                // 修改
+                const target = list.find(i => i.name === oldName);
+                if (target) {
+                    target.name = newName;
+                    target.color = color;
+                }
+                // 同步更新物品資料對應名稱
+                items.forEach(i => {
+                    if (type === 'location' && i.location === oldName) i.location = newName;
+                    if (type === 'category' && i.category === oldName) i.category = newName;
+                });
+            } else {
+                // 新增
+                if (list.some(i => i.name === newName)) {
+                    alert('該名稱已存在！');
+                    return;
+                }
+                list.push({ name: newName, color });
+            }
+
+            saveData();
+            closeCatModal();
+        }
+
+        function deleteCategory(type, name) {
+            const label = type === 'location' ? '擺放位置' : '物品種類';
+            if (confirm(`確定要刪除「${name}」這項${label}嗎？`)) {
+                if (type === 'location') {
+                    locations = locations.filter(l => l.name !== name);
+                    items.forEach(i => { if (i.location === name) i.location = ''; });
+                    if (activeLocationFilter === name) activeLocationFilter = 'ALL';
+                } else {
+                    categories = categories.filter(c => c.name !== name);
+                    items.forEach(i => { if (i.category === name) i.category = ''; });
+                    if (activeCategoryFilter === name) activeCategoryFilter = 'ALL';
+                }
+                saveData();
+            }
+        }
+
+        function setFilter(type, value) {
+            if (type === 'loc') activeLocationFilter = value;
+            if (type === 'cat') activeCategoryFilter = value;
+            currentPage = 1;
+            renderSidebar();
+            renderGrid();
+            if (window.innerWidth < 768) toggleSidebar();
+        }
+
+        /* ----- 物品列表與搜尋過濾 ----- */
+        function getFilteredItems() {
+            const searchText = document.getElementById('search-input').value.toLowerCase();
+            const sortBy = document.getElementById('sort-select').value;
+
+            return items.filter(item => {
+                const matchesLoc = activeLocationFilter === 'ALL' || item.location === activeLocationFilter;
+                const matchesCat = activeCategoryFilter === 'ALL' || item.category === activeCategoryFilter;
+                const matchesSearch = item.name.toLowerCase().includes(searchText) || (item.desc && item.desc.toLowerCase().includes(searchText));
+                return matchesLoc && matchesCat && matchesSearch;
+            }).sort((a, b) => {
+                if (sortBy === 'expiry-asc') return new Date(a.expiry || '9999-12-31') - new Date(b.expiry || '9999-12-31');
+                if (sortBy === 'expiry-desc') return new Date(b.expiry || '1970-01-01') - new Date(a.expiry || '1970-01-01');
+                if (sortBy === 'name-asc') return a.name.localeCompare(b.name, 'zh-Hant');
+                if (sortBy === 'location-asc') return (a.location || '').localeCompare(b.location || '', 'zh-Hant');
+            });
+        }
+
+        function renderGrid() {
+            const filtered = getFilteredItems();
+            const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+
+            const startIdx = (currentPage - 1) * pageSize;
+            const pageItems = filtered.slice(startIdx, startIdx + pageSize);
+
+            const gridContainer = document.getElementById('items-grid');
+            gridContainer.innerHTML = pageItems.map(item => `
+                <div class="card">
+                    <img src="${item.image || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23edf2f7"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23a0aec0" font-size="14">無圖片</text></svg>'}" alt="${item.name}">
+                    <div class="card-body">
+                        <div class="card-title">${item.name}</div>
+                        <div class="info-row">📍 <b>位置：</b>${item.location || '未選擇'}</div>
+                        <div class="info-row">📦 <b>容量：</b>${item.capacity || '未填寫'}</div>
+                        <div class="info-row">⏳ <b>到期：</b>${item.expiry || '未填寫'}</div>
+                        <div style="color: #718096; font-size: 0.78rem; margin-top: 2px;">${item.desc || ''}</div>
+                        ${item.category ? `<span class="card-tag">${item.category}</span>` : ''}
+                        <div class="card-actions">
+                            <button onclick="editItem('${item.id}')">修改</button>
+                            <button onclick="deleteItem('${item.id}')" style="color: #e53e3e;">刪除</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('page-info').innerText = `${currentPage} / ${totalPages}`;
+            document.getElementById('btn-prev').disabled = currentPage === 1;
+            document.getElementById('btn-next').disabled = currentPage === totalPages;
+        }
+
+        function handleSearch() { currentPage = 1; renderGrid(); }
+        function handleSort() { renderGrid(); }
+        function changePage(delta) { currentPage += delta; renderGrid(); }
+
+        /* ----- 下拉選單 Populate (包含空選項) ----- */
+        function populateDropdowns() {
+            const locSelect = document.getElementById('item-location');
+            locSelect.innerHTML = `<option value="">-- 請選擇位置 --</option>` + 
+                locations.map(loc => `<option value="${loc.name}">${loc.name}</option>`).join('');
+
+            const catSelect = document.getElementById('item-category');
+            catSelect.innerHTML = `<option value="">-- 請選擇種類 --</option>` + 
+                categories.map(cat => `<option value="${cat.name}">${cat.name}</option>`).join('');
+        }
+
+        /* ----- 圖片自動強化（對比度、清晰度、色調調優） ----- */
+        function processAndPreviewImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+
+                        // Canvas 影像濾鏡強化：提升對比度 (115%)、飽和度/鮮艷度 (110%) 與亮度 (105%)
+                        ctx.filter = 'contrast(115%) saturate(110%) brightness(105%)';
+                        ctx.drawImage(img, 0, 0, img.width, img.height);
+
+                        currentImageBase64 = canvas.toDataURL('image/jpeg', 0.85);
+                        const preview = document.getElementById('image-preview');
+                        preview.src = currentImageBase64;
+                        preview.style.display = 'block';
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        /* ----- 物品彈窗邏輯 ----- */
+        function openModal(isEdit = false) {
+            populateDropdowns();
+            document.getElementById('item-modal').classList.add('open');
+            if (!isEdit) {
+                document.getElementById('modal-title').innerText = '新增物品';
+                document.getElementById('item-form').reset();
+                document.getElementById('item-id').value = '';
+                document.getElementById('image-preview').style.display = 'none';
+                currentImageBase64 = '';
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('item-modal').classList.remove('open');
+        }
+
+        function saveItem(e) {
+            e.preventDefault();
+            const id = document.getElementById('item-id').value || Date.now().toString();
+            
+            // 僅 item-name 為必填
+            const newItem = {
+                id,
+                name: document.getElementById('item-name').value,
+                location: document.getElementById('item-location').value,
+                category: document.getElementById('item-category').value,
+                capacity: document.getElementById('item-capacity').value,
+                expiry: document.getElementById('item-expiry').value,
+                desc: document.getElementById('item-desc').value,
+                image: currentImageBase64
+            };
+
+            const index = items.findIndex(i => i.id === id);
+            if (index > -1) {
+                items[index] = newItem;
+            } else {
+                items.push(newItem);
+            }
+
+            saveData();
+            closeModal();
+        }
+
+        function editItem(id) {
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+
+            openModal(true);
+
+            document.getElementById('modal-title').innerText = '修改物品';
+            document.getElementById('item-id').value = item.id;
+            document.getElementById('item-name').value = item.name;
+            document.getElementById('item-location').value = item.location || '';
+            document.getElementById('item-category').value = item.category || '';
+            document.getElementById('item-capacity').value = item.capacity || '';
+            document.getElementById('item-expiry').value = item.expiry || '';
+            document.getElementById('item-desc').value = item.desc || '';
+            
+            currentImageBase64 = item.image || '';
+            const preview = document.getElementById('image-preview');
+            if (currentImageBase64) {
+                preview.src = currentImageBase64;
+                preview.style.display = 'block';
+            } else {
+                preview.style.display = 'none';
+            }
+        }
+
+        function deleteItem(id) {
+            if (confirm('確定要刪除此物品嗎？')) {
+                items = items.filter(i => i.id !== id);
+                saveData();
+            }
+        }
+
+        // 初始化載入
+        renderSidebar();
+        renderGrid();
+    </script>
+</body>
+</html>
